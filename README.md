@@ -11,7 +11,7 @@ I'm not a dev, just trying to solve a problem I found frustrating when I first s
 ## Install
 
 ```bash
-pip3 install fastapi uvicorn requests
+pip3 install --user fastapi uvicorn requests
 ```
 
 ## Run
