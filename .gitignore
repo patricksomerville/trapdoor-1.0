@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Trapdoor
+.trapdoor/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
