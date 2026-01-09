@@ -74,18 +74,16 @@ python server.py
 ## Files
 
 ```
-v1/
 ├── server.py      # The server (~500 lines)
 ├── connector.py   # Upload to AI chats
 └── README.md      # You're here
 ```
 
-## Roadmap
+---
 
-- **1.0** ✅ Core server with access levels
-- **1.1** Instructions file + session logging
-- **1.2** Blocklist patterns
-- **1.5** Local chat gateway mode
+I'm not a dev, just trying to solve a problem I found frustrating when I first started to understand how annoying it was that the things I paid for couldn't help me with other things I paid for. I'm sure there's a better and smarter version of this somewhere, but this is what I made. It makes me happy if it helps you! Be careful, of course, but you're a grownup (I think?).
+
+—patrick
 
 ## License
 
