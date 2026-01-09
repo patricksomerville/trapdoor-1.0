@@ -8,18 +8,21 @@ I'm not a dev, just trying to solve a problem I found frustrating when I first s
 
 ---
 
-## Install
+## Install & Run
 
 ```bash
-pip3 install --user fastapi uvicorn requests
+cd trapdoor-1.0
+python3 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn requests
+python server.py
 ```
 
-## Run
-
+Access levels:
 ```bash
-python3 server.py              # read-only (default)
-python3 server.py --solid      # read + write
-python3 server.py --full       # everything
+python server.py              # read-only (default)
+python server.py --solid      # read + write
+python server.py --full       # everything
 ```
 
 ## Use
