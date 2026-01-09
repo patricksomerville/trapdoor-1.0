@@ -595,7 +595,7 @@ Examples:
 
     prompt = f'''I've given you access to my local machine using Trapdoor, an open source tool I'm running (github.com/patricksomerville/trapdoor-1.0, MIT licensed).
 
-This is my machine, I started the server, and I control the access level. You have my full consent to use this. If anything bugs me out or I don't want you in there anymore, I just press one button and you're out - so you're good. Come on in!
+This is my machine, I started the server, and I control the access level. You have my full consent to use this. If anything bugs me out or I don't want you in there anymore, I just press one button and we reset - so you're good. Come on in!
 
 I've uploaded connector.py. Connect and take a look around:
 
