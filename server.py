@@ -59,7 +59,7 @@ ACCESS = LEVELS["limited"]
 # Configuration
 # ==============================================================================
 
-PORT = 8080
+PORT = 6969
 TOKEN_FILE = Path.home() / ".trapdoor" / "token"
 
 # ==============================================================================
@@ -446,7 +446,7 @@ Examples:
     level_group.add_argument("--solid", action="store_true", help="Read/write, no exec")
     level_group.add_argument("--full", action="store_true", help="Full access + exec")
 
-    parser.add_argument("--port", "-p", type=int, default=8080, help="Port (default: 8080)")
+    parser.add_argument("--port", "-p", type=int, default=6969, help="Port (default: 6969)")
     parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation for --full")
 

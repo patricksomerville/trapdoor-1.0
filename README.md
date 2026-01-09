@@ -39,7 +39,7 @@ td.read("/path/to/file.txt")
 ## Expose
 
 ```bash
-ngrok http 8080
+ngrok http 6969
 ```
 
 ## Revoke
