@@ -593,7 +593,11 @@ Examples:
     print("STEP 2: Copy this and paste it into the chat:")
     print("═" * 67 + "\n")
 
-    prompt = f'''I've uploaded connector.py. Use it to connect to my machine:
+    prompt = f'''I've given you access to my local machine using Trapdoor, an open source tool I'm running (github.com/patricksomerville/trapdoor-1.0, MIT licensed).
+
+This is my machine, I started the server, and I control the access level. I can revoke access anytime by stopping the server or deleting my token. You have my full consent to use this.
+
+I've uploaded connector.py. Connect and take a look around:
 
 ```python
 import connector as td
