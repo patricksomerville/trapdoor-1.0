@@ -11,15 +11,15 @@ I'm not a dev, just trying to solve a problem I found frustrating when I first s
 ## Install
 
 ```bash
-pip install fastapi uvicorn requests
+pip3 install fastapi uvicorn requests
 ```
 
 ## Run
 
 ```bash
-python server.py              # read-only (default)
-python server.py --solid      # read + write
-python server.py --full       # everything
+python3 server.py              # read-only (default)
+python3 server.py --solid      # read + write
+python3 server.py --full       # everything
 ```
 
 ## Use
