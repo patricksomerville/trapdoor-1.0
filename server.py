@@ -504,14 +504,25 @@ Examples:
    {"✓" if ACCESS["fs_delete"] else "✗"} Delete files      - Remove files and directories
    {"✓" if ACCESS["exec"] else "✗"} Execute commands  - Run shell, scripts, sudo
 
-🌐 Server:  http://localhost:{PORT}
-🔑 Token:   {TOKEN}
-📁 Config:  {TOKEN_FILE}
+NEXT STEPS:
 
-To expose publicly:
-    ngrok http {PORT}
+1. Expose to internet (pick one):
+   ngrok http {PORT}
+   cloudflared tunnel --url http://localhost:{PORT}
 
-Then upload connector.py to ChatGPT/Claude with your URL + token
+2. Copy your public URL (e.g. https://abc123.ngrok.io)
+
+3. Start a chat with ChatGPT or Claude
+
+4. Upload connector.py to the chat
+
+5. Tell the AI:
+   "Connect to https://YOUR-URL with token {TOKEN}"
+
+6. Now the AI can access your machine. Try asking it to:
+   "List the files in my home directory"
+
+Token saved at: {TOKEN_FILE}
 {"─" * 67}
 """)
 
