@@ -504,29 +504,127 @@ Examples:
    {"✓" if ACCESS["fs_delete"] else "✗"} Delete files      - Remove files and directories
    {"✓" if ACCESS["exec"] else "✗"} Execute commands  - Run shell, scripts, sudo
 
-NEXT STEPS:
-
-1. Expose to internet (pick one):
-   ngrok http {PORT}
-   cloudflared tunnel --url http://localhost:{PORT}
-
-2. Copy your public URL (e.g. https://abc123.ngrok.io)
-
-3. Start a chat with ChatGPT or Claude
-
-4. Upload connector.py to the chat
-
-5. Tell the AI:
-   "Connect to https://YOUR-URL with token {TOKEN}"
-
-6. Now the AI can access your machine. Try asking it to:
-   "List the files in my home directory"
-
-Token saved at: {TOKEN_FILE}
 {"─" * 67}
 """)
 
-    uvicorn.run(app, host=args.host, port=PORT)
+    # Ask about exposure
+    print("How do you want to expose this to the internet?\n")
+    print("  1. ngrok")
+    print("  2. cloudflare")
+    print("  3. I'll do it myself / not right now")
+    print()
+
+    try:
+        choice = input("Choose [1/2/3]: ").strip()
+    except (KeyboardInterrupt, EOFError):
+        print("\nStarting server without tunnel...")
+        choice = "3"
+
+    public_url = None
+    tunnel_process = None
+
+    if choice == "1":
+        # Try ngrok
+        print("\nStarting ngrok...")
+        try:
+            tunnel_process = subprocess.Popen(
+                ["ngrok", "http", str(PORT), "--log=stdout"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            import time
+            time.sleep(3)
+            # Get URL from ngrok API
+            try:
+                import requests
+                resp = requests.get("http://localhost:4040/api/tunnels", timeout=5)
+                tunnels = resp.json().get("tunnels", [])
+                for t in tunnels:
+                    if t.get("proto") == "https":
+                        public_url = t["public_url"]
+                        break
+                if not public_url and tunnels:
+                    public_url = tunnels[0].get("public_url")
+            except:
+                pass
+            if public_url:
+                print(f"✓ ngrok running: {public_url}")
+            else:
+                print("⚠ ngrok started but couldn't get URL. Check http://localhost:4040")
+        except FileNotFoundError:
+            print("✗ ngrok not found. Install it: https://ngrok.com/download")
+
+    elif choice == "2":
+        # Try cloudflare
+        print("\nStarting cloudflare tunnel...")
+        try:
+            tunnel_process = subprocess.Popen(
+                ["cloudflared", "tunnel", "--url", f"http://localhost:{PORT}"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            import time
+            time.sleep(5)
+            # Cloudflare prints URL to stderr
+            print("✓ cloudflare tunnel starting...")
+            print("  (URL will appear in the cloudflared output above)")
+        except FileNotFoundError:
+            print("✗ cloudflared not found. Install it: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation")
+
+    # Generate prompt
+    print("\n" + "═" * 67)
+    print("COPY THIS ENTIRE BLOCK AND PASTE IT INTO CHATGPT OR CLAUDE:")
+    print("═" * 67 + "\n")
+
+    connector_code = Path(__file__).parent / "connector.py"
+    if connector_code.exists():
+        code = connector_code.read_text()
+    else:
+        code = "# connector.py not found - download from github.com/patricksomerville/trapdoor-1.0"
+
+    url_to_use = public_url if public_url else "YOUR_URL_HERE"
+
+    prompt = f'''I'm giving you access to my local machine via Trapdoor.
+
+Here's the connector - save it and import it:
+
+```python
+{code}
+```
+
+Now connect using:
+```python
+import connector as td
+td.connect("{url_to_use}", "{TOKEN}")
+```
+
+Once connected, you can:
+- td.ls("/path") - list files
+- td.read("/path/file.txt") - read a file
+- td.write("/path/file.txt", "content") - write a file
+- td.run("command") - run a shell command
+
+Start by listing my home directory.'''
+
+    print(prompt)
+    print("\n" + "═" * 67)
+
+    if not public_url:
+        print(f"\n⚠ Replace YOUR_URL_HERE with your public URL after running:")
+        print(f"  ngrok http {PORT}")
+        print(f"  OR: cloudflared tunnel --url http://localhost:{PORT}")
+
+    print(f"\nToken: {TOKEN}")
+    print(f"Local: http://localhost:{PORT}")
+    if public_url:
+        print(f"Public: {public_url}")
+    print("\nPress Ctrl+C to stop.\n")
+
+    try:
+        uvicorn.run(app, host=args.host, port=PORT)
+    finally:
+        if tunnel_process:
+            tunnel_process.terminate()
 
 
 if __name__ == "__main__":
