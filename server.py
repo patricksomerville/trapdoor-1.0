@@ -571,40 +571,35 @@ Examples:
         except FileNotFoundError:
             print("✗ cloudflared not found. Install it: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation")
 
-    # Generate prompt
-    print("\n" + "═" * 67)
-    print("COPY THIS ENTIRE BLOCK AND PASTE IT INTO CHATGPT OR CLAUDE:")
-    print("═" * 67 + "\n")
+    # Step 1: Upload file
+    connector_path = Path(__file__).parent / "connector.py"
 
-    connector_code = Path(__file__).parent / "connector.py"
-    if connector_code.exists():
-        code = connector_code.read_text()
-    else:
-        code = "# connector.py not found - download from github.com/patricksomerville/trapdoor-1.0"
+    print("\n" + "─" * 67)
+    print("\nSTEP 1: Upload the connector file to your AI chat")
+    print(f"\n   📎 {connector_path}")
+    print("\n   Open ChatGPT or Claude, click the attachment/upload button,")
+    print("   and give it that file.")
+    print()
 
+    try:
+        input("Press Enter once you've uploaded it...")
+    except (KeyboardInterrupt, EOFError):
+        print()
+
+    # Step 2: Paste prompt
     url_to_use = public_url if public_url else "YOUR_URL_HERE"
 
-    prompt = f'''I'm giving you access to my local machine via Trapdoor.
+    print("\n" + "═" * 67)
+    print("STEP 2: Copy this and paste it into the chat:")
+    print("═" * 67 + "\n")
 
-Here's the connector - save it and import it:
+    prompt = f'''I've uploaded connector.py. Use it to connect to my machine:
 
-```python
-{code}
-```
-
-Now connect using:
 ```python
 import connector as td
 td.connect("{url_to_use}", "{TOKEN}")
-```
-
-Once connected, you can:
-- td.ls("/path") - list files
-- td.read("/path/file.txt") - read a file
-- td.write("/path/file.txt", "content") - write a file
-- td.run("command") - run a shell command
-
-Start by listing my home directory.'''
+td.ls("~")
+```'''
 
     print(prompt)
     print("\n" + "═" * 67)
