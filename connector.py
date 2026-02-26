@@ -37,7 +37,7 @@ _token: Optional[str] = None
 _headers: Dict[str, str] = {}
 
 
-def connect(url: str, token: str) -> bool:
+def connect(url: str, token: str, *, timeout: int = 10) -> bool:
     """
     Connect to Trapdoor server
 
@@ -56,7 +56,7 @@ def connect(url: str, token: str) -> bool:
 
     # Test connection
     try:
-        r = requests.get(f"{_url}/health", timeout=10)
+        r = requests.get(f"{_url}/health", timeout=timeout)
         r.raise_for_status()
         info = r.json()
         print(f"Connected to Trapdoor {info.get('version', '1.0')}")
@@ -129,7 +129,7 @@ def rm(path: str) -> dict:
 # Command Execution
 # ==============================================================================
 
-def exec(cmd: List[str], cwd: str = "/tmp", timeout: int = 60) -> Dict[str, Any]:
+def exec(cmd: List[str], cwd: str = "/", timeout: int = 60, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """
     Execute command
 
@@ -145,13 +145,13 @@ def exec(cmd: List[str], cwd: str = "/tmp", timeout: int = 60) -> Dict[str, Any]
     r = requests.post(
         f"{_url}/exec",
         headers=_headers,
-        json={"cmd": cmd, "cwd": cwd, "timeout": timeout}
+        json={"cmd": cmd, "cwd": cwd, "timeout": timeout, "env": env}
     )
     r.raise_for_status()
     return r.json()
 
 
-def run(cmd_string: str, cwd: str = "/tmp") -> str:
+def run(cmd_string: str, cwd: str = "/") -> str:
     """
     Run shell command (convenience wrapper)
 

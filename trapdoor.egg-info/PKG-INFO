@@ -1,3 +1,17 @@
+Metadata-Version: 2.4
+Name: trapdoor
+Version: 0.1.0
+Summary: Give cloud AIs safe access to your local machine (with access tiers).
+Author: Patrick Somerville
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/patricksomerville/trapdoor-1.0
+Project-URL: Repository, https://github.com/patricksomerville/trapdoor-1.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<0.129.0,>=0.115.0
+Requires-Dist: uvicorn<0.41.0,>=0.29.0
+Requires-Dist: requests>=2.31.0
+
 # Trapdoor
 
 **Give cloud AIs access to your local machine.** A tiny FastAPI bridge with access tiers.
@@ -5,10 +19,6 @@
 I'm not a dev—just frustrated that the things I paid for wouldn't talk to each other. This is the minimal thing I made. It works; be careful.
 
 But truly, be careful. This is a door into your computer. The callers are coming either way; this at least lets you control the door.
-
-## How this started
-
-I'm not a dev, just a man with insomnia and a hobbyist. The fun problem to solve was how a simple fetch could be enough to get cloud models talking to your filesystem. Before I even knew what endpoints were, I just dropped a local model at the other end of a tunnel and set it up to enact commands when they came through.
 
 —patrick
 

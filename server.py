@@ -60,23 +60,31 @@ ACCESS = LEVELS["limited"]
 # ==============================================================================
 
 PORT = 6969
+DEFAULT_ROOT = Path.cwd()
 TOKEN_FILE = Path.home() / ".trapdoor" / "token"
 
 # ==============================================================================
 # Token Management
 # ==============================================================================
 
-def get_or_create_token() -> str:
-    """Get existing token or create a new one"""
+def set_token(token: str) -> str:
     TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-    if TOKEN_FILE.exists():
-        return TOKEN_FILE.read_text().strip()
-
-    token = secrets.token_hex(16)
     TOKEN_FILE.write_text(token)
     TOKEN_FILE.chmod(0o600)
     return token
+
+
+def get_or_create_token() -> str:
+    """Get existing token or create a new one"""
+    if TOKEN_FILE.exists():
+        return TOKEN_FILE.read_text().strip()
+    return set_token(secrets.token_hex(16))
+
+
+def rotate_token() -> str:
+    """Rotate auth token and persist it"""
+    return set_token(secrets.token_hex(16))
+
 
 TOKEN = get_or_create_token()
 
@@ -92,6 +100,34 @@ def find_open_port(start: int = 8080, max_tries: int = 100) -> int:
     raise RuntimeError(f"No open port found in range {start}-{start + max_tries}")
 
 # ==============================================================================
+# Sandbox Root
+# ==============================================================================
+
+ROOT = DEFAULT_ROOT
+
+
+def set_root(path: str):
+    global ROOT
+    ROOT = Path(path).expanduser().resolve()
+    ROOT.mkdir(parents=True, exist_ok=True)
+
+
+def resolve_path(path: str) -> Path:
+    """Resolve user path into sandboxed root, preventing escape."""
+    if path == "/":
+        target = ROOT
+    else:
+        candidate = Path(path).expanduser()
+        target = candidate.resolve() if candidate.is_absolute() else (ROOT / candidate).resolve()
+
+    try:
+        target.relative_to(ROOT)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Path escapes sandbox root")
+
+    return target
+
+
 # FastAPI App
 # ==============================================================================
 
@@ -140,8 +176,9 @@ class RmRequest(BaseModel):
 
 class ExecRequest(BaseModel):
     cmd: List[str]
-    cwd: str = "/tmp"
+    cwd: str = "/"
     timeout: int = 60
+    env: Optional[dict] = None
 
 class ChatRequest(BaseModel):
     model: str = "gpt-4"
@@ -165,7 +202,8 @@ def health():
             "delete": ACCESS["fs_delete"],
             "exec": ACCESS["exec"],
         },
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "root": str(ROOT)
     }
 
 # ==============================================================================
@@ -183,7 +221,7 @@ def fs_ls(
     if not ACCESS["fs_read"]:
         raise HTTPException(status_code=403, detail="Read access disabled")
 
-    target = Path(path).expanduser().resolve()
+    target = resolve_path(path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {path}")
@@ -223,7 +261,7 @@ def fs_read(
     if not ACCESS["fs_read"]:
         raise HTTPException(status_code=403, detail="Read access disabled")
 
-    target = Path(path).expanduser().resolve()
+    target = resolve_path(path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {path}")
@@ -249,7 +287,7 @@ def fs_write(
     if not ACCESS["fs_write"]:
         raise HTTPException(status_code=403, detail="Write access disabled. Start with --solid or --full")
 
-    target = Path(req.path).expanduser().resolve()
+    target = resolve_path(req.path)
     target.parent.mkdir(parents=True, exist_ok=True)
 
     if req.mode == "append":
@@ -272,7 +310,7 @@ def fs_mkdir(
     if not ACCESS["fs_write"]:
         raise HTTPException(status_code=403, detail="Write access disabled. Start with --solid or --full")
 
-    target = Path(req.path).expanduser().resolve()
+    target = resolve_path(req.path)
     target.mkdir(parents=True, exist_ok=True)
 
     return {"path": str(target), "created": True}
@@ -289,7 +327,7 @@ def fs_rm(
     if not ACCESS["fs_delete"]:
         raise HTTPException(status_code=403, detail="Delete access disabled. Start with --full")
 
-    target = Path(req.path).expanduser().resolve()
+    target = resolve_path(req.path)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {req.path}")
@@ -319,10 +357,11 @@ def exec_command(
     try:
         result = subprocess.run(
             req.cmd,
-            cwd=req.cwd,
+            cwd=resolve_path(req.cwd),
             capture_output=True,
             text=True,
-            timeout=req.timeout
+            timeout=req.timeout,
+            env=req.env
         )
 
         return {
@@ -447,8 +486,10 @@ Examples:
     level_group.add_argument("--full", action="store_true", help="Full access + exec")
 
     parser.add_argument("--port", "-p", type=int, default=6969, help="Port (default: 6969)")
+    parser.add_argument("--root", type=str, default=str(DEFAULT_ROOT), help="Sandbox root (default: current directory)")
     parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation for --full")
+    parser.add_argument("--rotate-token", action="store_true", help="Rotate token on start")
 
     args = parser.parse_args()
 
@@ -481,6 +522,14 @@ Examples:
         level_name = "limited"
         level_icon = "🔒"
         level_warning = ""
+
+    # Sandbox root
+    set_root(args.root)
+
+    # Rotate token if requested
+    if args.rotate_token:
+        new_token = rotate_token()
+        print(f"🔑 Token rotated: {new_token}")
 
     # Find open port
     requested_port = args.port
