@@ -1,8 +1,8 @@
 class Trapdoor < Formula
   desc "Give cloud AIs safe access to your local machine (with access tiers)"
   homepage "https://github.com/patricksomerville/trapdoor-1.0"
-  url "https://github.com/patricksomerville/trapdoor-1.0/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 "b2823577c693778b0a7f0ec067cb5f5d25f8f06da01ce93c3f12bf3e27289318"
+  url "https://github.com/patricksomerville/trapdoor-1.0/archive/refs/tags/v0.1.1.tar.gz"
+  sha256 "23e78aa286b12067ad979d9732df56c57fe0c423bd75813a59f79bc4506c243f"
   license "MIT"
 
   depends_on "python@3.12"

@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir .
 
 EXPOSE 6969
 
-CMD ["trapdoor", "--host", "0.0.0.0", "--port", "6969"]
+CMD ["trapdoor", "--host", "0.0.0.0", "--port", "6969", "--no-interactive"]

@@ -5,7 +5,7 @@ This gives the AI access to your local machine via Trapdoor.
 
 Setup:
     1. Run Trapdoor server on your machine: python server.py
-    2. Expose it: ngrok http 8080
+    2. Expose it: ngrok http 6969
     3. Upload this file to your AI chat
     4. Set the URL and token when prompted
 
@@ -28,6 +28,7 @@ Usage:
     result = td.run("ls -la")
 """
 
+import shlex
 import requests
 from typing import List, Dict, Any, Optional
 
@@ -129,7 +130,7 @@ def rm(path: str) -> dict:
 # Command Execution
 # ==============================================================================
 
-def exec(cmd: List[str], cwd: str = "/", timeout: int = 60, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+def execute(cmd: List[str], cwd: str = "/", timeout: int = 60, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """
     Execute command
 
@@ -161,7 +162,7 @@ def run(cmd_string: str, cwd: str = "/") -> str:
     Returns:
         Command stdout
     """
-    result = exec(cmd_string.split(), cwd=cwd)
+    result = execute(shlex.split(cmd_string), cwd=cwd)
     if result.get("returncode") != 0 and result.get("stderr"):
         print(f"Warning: {result['stderr']}")
     return result.get("stdout", "")
@@ -190,7 +191,7 @@ def chat(prompt: str, model: str = "default") -> str:
 def health() -> dict:
     """Check server health"""
     _require_connection()
-    r = requests.get(f"{_url}/health", timeout=5)
+    r = requests.get(f"{_url}/health", headers=_headers, timeout=5)
     r.raise_for_status()
     return r.json()
 

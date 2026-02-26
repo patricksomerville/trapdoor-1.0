@@ -15,6 +15,7 @@ import secrets
 import socket
 import subprocess
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional, List
 from datetime import datetime
@@ -134,9 +135,12 @@ def resolve_path(path: str) -> Path:
 app = FastAPI(
     title="Trapdoor 1.0",
     description="Give cloud AIs safe access to your local machine",
-    version="1.0.0"
+    version="0.1.1"
 )
 
+# CORS is open because the whole point is cross-origin access
+# from cloud AI sandboxes, tunnels, and external clients.
+# Auth token is the access control layer, not CORS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -194,7 +198,7 @@ def health():
     level_name = next((k for k, v in LEVELS.items() if v == ACCESS), "unknown")
     return {
         "status": "ok",
-        "version": "1.0.0",
+        "version": "0.1.1",
         "access_level": level_name,
         "permissions": {
             "read": ACCESS["fs_read"],
@@ -202,8 +206,7 @@ def health():
             "delete": ACCESS["fs_delete"],
             "exec": ACCESS["exec"],
         },
-        "timestamp": datetime.now().isoformat(),
-        "root": str(ROOT)
+        "timestamp": datetime.now().isoformat()
     }
 
 # ==============================================================================
@@ -490,13 +493,16 @@ Examples:
     parser.add_argument("--host", default="0.0.0.0", help="Host (default: 0.0.0.0)")
     parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation for --full")
     parser.add_argument("--rotate-token", action="store_true", help="Rotate token on start")
+    parser.add_argument("--no-interactive", action="store_true", help="Skip all prompts (for Docker/CI)")
 
     args = parser.parse_args()
+
+    interactive = not args.no_interactive and sys.stdin.isatty()
 
     # Set access level
     if args.full:
         # Confirm full access unless -y flag
-        if not args.yes:
+        if not args.yes and interactive:
             print(FULL_ACCESS_WARNING)
             try:
                 response = input("Type 'yes' to continue with full access: ")
@@ -539,10 +545,10 @@ Examples:
 
     # Print banner
     print(f"""
-╔═══════════════════════════════════════════════════════════════════╗
-║                       TRAPDOOR 1.0                                ║
-║          Give cloud AIs safe access to your local machine         ║
-╚═══════════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════════════════════════════════╗
+║                       TRAPDOOR 0.1                          ║
+║       Give cloud AIs safe access to your local machine      ║
+╚═════════════════════════════════════════════════════════════╝
 
 {level_icon} Access Level: {level_name.upper()}
    {ACCESS['description']}{level_warning}
@@ -556,17 +562,20 @@ Examples:
 {"─" * 67}
 """)
 
-    # Ask about exposure
-    print("How do you want to expose this to the internet?\n")
-    print("  1. ngrok")
-    print("  2. cloudflare")
-    print("  3. I'll do it myself / not right now")
-    print()
+    if interactive:
+        # Ask about exposure
+        print("How do you want to expose this to the internet?\n")
+        print("  1. ngrok")
+        print("  2. cloudflare")
+        print("  3. I'll do it myself / not right now")
+        print()
 
-    try:
-        choice = input("Choose [1/2/3]: ").strip()
-    except (KeyboardInterrupt, EOFError):
-        print("\nStarting server without tunnel...")
+        try:
+            choice = input("Choose [1/2/3]: ").strip()
+        except (KeyboardInterrupt, EOFError):
+            print("\nStarting server without tunnel...")
+            choice = "3"
+    else:
         choice = "3"
 
     public_url = None
@@ -594,7 +603,7 @@ Examples:
                         break
                 if not public_url and tunnels:
                     public_url = tunnels[0].get("public_url")
-            except:
+            except Exception:
                 pass
             if public_url:
                 print(f"✓ ngrok running: {public_url}")
@@ -623,17 +632,18 @@ Examples:
     # Step 1: Upload file
     connector_path = Path(__file__).parent / "connector.py"
 
-    print("\n" + "─" * 67)
-    print("\nSTEP 1: Upload the connector file to your AI chat")
-    print(f"\n   📎 {connector_path}")
-    print("\n   Open ChatGPT or Claude, click the attachment/upload button,")
-    print("   and give it that file.")
-    print()
-
-    try:
-        input("Press Enter once you've uploaded it...")
-    except (KeyboardInterrupt, EOFError):
+    if interactive:
+        print("\n" + "─" * 67)
+        print("\nSTEP 1: Upload the connector file to your AI chat")
+        print(f"\n   📎 {connector_path}")
+        print("\n   Open ChatGPT or Claude, click the attachment/upload button,")
+        print("   and give it that file.")
         print()
+
+        try:
+            input("Press Enter once you've uploaded it...")
+        except (KeyboardInterrupt, EOFError):
+            print()
 
     # Step 2: Paste prompt
     url_to_use = public_url if public_url else "YOUR_URL_HERE"
