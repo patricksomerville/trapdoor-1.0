@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trapdoor"
+version = "0.1.0"
+description = "Give cloud AIs safe access to your local machine (with access tiers)."
+readme = "README.md"
+authors = [{ name = "Patrick Somerville" }]
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.115.0,<0.129.0",
+  "uvicorn>=0.29.0,<0.41.0",
+  "requests>=2.31.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/patricksomerville/trapdoor-1.0"
+Repository = "https://github.com/patricksomerville/trapdoor-1.0"
+
+[project.scripts]
+trapdoor = "server:main"
+
+[tool.setuptools]
+py-modules = ["server", "connector"]

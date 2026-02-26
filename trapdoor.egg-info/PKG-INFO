@@ -1,0 +1,75 @@
+Metadata-Version: 2.4
+Name: trapdoor
+Version: 0.1.0
+Summary: Give cloud AIs safe access to your local machine (with access tiers).
+Author: Patrick Somerville
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/patricksomerville/trapdoor-1.0
+Project-URL: Repository, https://github.com/patricksomerville/trapdoor-1.0
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi<0.129.0,>=0.115.0
+Requires-Dist: uvicorn<0.41.0,>=0.29.0
+Requires-Dist: requests>=2.31.0
+
+# Trapdoor
+
+**Give cloud AIs access to your local machine.** A tiny FastAPI bridge with access tiers.
+
+I'm not a dev—just frustrated that the things I paid for wouldn't talk to each other. This is the minimal thing I made. It works; be careful.
+
+But truly, be careful. This is a door into your computer. The callers are coming either way; this at least lets you control the door.
+
+—patrick
+
+---
+
+## Install & Run
+
+```bash
+cd trapdoor-1.0
+python3 -m venv venv
+source venv/bin/activate
+pip install fastapi uvicorn requests
+python server.py
+```
+
+Access levels (pick the smallest that works):
+```bash
+python server.py                   # read-only (default)
+python server.py --solid           # read + write (no exec)
+python server.py --full -y         # everything (exec/delete) — only if you mean it
+
+# Safer defaults
+# Use a sandbox root and a fresh token each run
+python server.py --root /tmp/trapdoor --rotate-token
+```
+
+## Use
+
+Upload `connector.py` to ChatGPT/Claude, then:
+
+```python
+import connector as td
+td.connect("https://your-ngrok-url.ngrok.io", "your-token")
+td.ls("/home")
+td.read("/path/to/file.txt")
+```
+
+## Expose (optional)
+
+Skip this if you're just using it locally. If you must expose it, use a fresh token, `--solid` (no exec), and kill the tunnel when done.
+
+```bash
+ngrok http 6969
+```
+
+## Revoke
+
+```bash
+rm ~/.trapdoor/token            # or restart with --rotate-token
+```
+
+## License
+
+MIT

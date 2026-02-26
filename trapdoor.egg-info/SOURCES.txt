@@ -1,0 +1,10 @@
+README.md
+connector.py
+pyproject.toml
+server.py
+trapdoor.egg-info/PKG-INFO
+trapdoor.egg-info/SOURCES.txt
+trapdoor.egg-info/dependency_links.txt
+trapdoor.egg-info/entry_points.txt
+trapdoor.egg-info/requires.txt
+trapdoor.egg-info/top_level.txt
