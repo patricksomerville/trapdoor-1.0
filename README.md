@@ -39,6 +39,13 @@ pip install fastapi uvicorn requests
 python server.py
 ```
 
+Optional root sandbox:
+```bash
+TRAPDOOR_ROOT=~/Projects python server.py
+```
+Note: this scopes filesystem endpoints and exec working directory, but does not
+fully sandbox command execution (commands can still access paths outside the root).
+
 Access levels:
 ```bash
 python server.py              # read-only (default)
@@ -58,11 +65,11 @@ TOKEN = "your-token"
 headers = {"Authorization": f"Bearer {TOKEN}"}
 
 # List files
-resp = requests.get(f"{BASE_URL}/ls", params={"path": "~"}, headers=headers)
+resp = requests.get(f"{BASE_URL}/fs/ls", params={"path": "~"}, headers=headers)
 print(resp.json())
 
 # Read file
-resp = requests.get(f"{BASE_URL}/read", params={"path": "/path/to/file"}, headers=headers)
+resp = requests.get(f"{BASE_URL}/fs/read", params={"path": "/path/to/file"}, headers=headers)
 print(resp.json())
 ```
 
@@ -90,8 +97,8 @@ Create an OpenAPI spec pointing to your Trapdoor:
   "openapi": "3.0.0",
   "servers": [{"url": "https://your-trapdoor-url.com"}],
   "paths": {
-    "/ls": {"get": {"operationId": "listFiles", ...}},
-    "/read": {"get": {"operationId": "readFile", ...}},
+    "/fs/ls": {"get": {"operationId": "listFiles", ...}},
+    "/fs/read": {"get": {"operationId": "readFile", ...}},
     "/exec": {"post": {"operationId": "executeCommand", ...}}
   }
 }
