@@ -1,8 +1,14 @@
 # Trapdoor 1.0
 
-**Give cloud AIs access to your local machine.**
+**Give cloud AIs access to your local machine.** A tiny FastAPI bridge with access tiers.
 
-I'm not a dev, just trying to solve a problem I found frustrating when I first started to understand how annoying it was that the things I paid for couldn't help me with other things I paid for. I'm sure there's a better and smarter version of this somewhere, but this is what I made. It makes me happy if it helps you! Be careful, of course, but you're a grownup (I think?).
+I'm not a dev—just frustrated that the things I paid for wouldn't talk to each other. This is the minimal thing I made. It works; be careful.
+
+But truly, be careful. This is a door into your computer. The callers are coming either way; this at least lets you control the door.
+
+## How this started
+
+I'm not a dev, just a man with insomnia and a hobbyist. The fun problem to solve was how a simple fetch could be enough to get cloud models talking to your filesystem. Before I even knew what endpoints were, I just dropped a local model at the other end of a tunnel and set it up to enact commands when they came through.
 
 —patrick
 
@@ -23,9 +29,9 @@ I'm not a dev, just trying to solve a problem I found frustrating when I first s
 **The Key Discovery:** AI chat sandboxes (ChatGPT Code Interpreter, Claude.ai) block outbound HTTP requests entirely. The "upload connector.py" approach was designed assuming the AI could make HTTP calls—it can't.
 
 **What Actually Works:**
-- **Claude Code** (the CLI tool) can reach trusted domains like Cloudflare tunnels
-- **Local scripts** work perfectly (no sandbox)
-- **Custom GPT Actions** use a different mechanism that does work
+- **Claude Code** (CLI) can reach trusted domains like Cloudflare tunnels.
+- **Local scripts** work perfectly (no sandbox).
+- **Custom GPT Actions** use a different mechanism that does work.
 
 ---
 
@@ -46,11 +52,15 @@ TRAPDOOR_ROOT=~/Projects python server.py
 Note: this scopes filesystem endpoints and exec working directory, but does not
 fully sandbox command execution (commands can still access paths outside the root).
 
-Access levels:
+Access levels (pick the smallest that works):
 ```bash
-python server.py              # read-only (default)
-python server.py --solid      # read + write
-python server.py --full       # everything including exec
+python server.py                   # read-only (default)
+python server.py --solid           # read + write (no exec)
+python server.py --full -y         # everything (exec/delete) — only if you mean it
+
+# Safer defaults
+# Use a sandbox root and a fresh token each run
+python server.py --root /tmp/trapdoor --rotate-token
 ```
 
 ---
@@ -84,7 +94,7 @@ If you're using Claude Code CLI with a Cloudflare tunnel:
 # Claude Code's WebFetch can reach this
 ```
 
-Claude Code can use WebFetch to connect, and with query param auth (`?token=xxx`), it has full access.
+Claude Code can use WebFetch to connect; keep using Bearer auth headers (or short-lived query tokens if you must).
 
 ---
 
@@ -97,9 +107,9 @@ Create an OpenAPI spec pointing to your Trapdoor:
   "openapi": "3.0.0",
   "servers": [{"url": "https://your-trapdoor-url.com"}],
   "paths": {
-    "/fs/ls": {"get": {"operationId": "listFiles", ...}},
-    "/fs/read": {"get": {"operationId": "readFile", ...}},
-    "/exec": {"post": {"operationId": "executeCommand", ...}}
+    "/fs/ls": {"get": {"operationId": "listFiles"}},
+    "/fs/read": {"get": {"operationId": "readFile"}},
+    "/exec": {"post": {"operationId": "executeCommand"}}
   }
 }
 ```
@@ -108,7 +118,9 @@ This works because Custom GPT Actions use a different mechanism than Code Interp
 
 ---
 
-## Expose
+## Expose (optional)
+
+Skip this if you're just using it locally. If you must expose it, use a fresh token, `--solid` (no exec), and kill the tunnel when done.
 
 ```bash
 # Option 1: ngrok (dynamic URL)
@@ -125,7 +137,7 @@ cloudflared tunnel --url http://localhost:6969
 ## Revoke
 
 ```bash
-rm ~/.trapdoor/token
+rm ~/.trapdoor/token            # or restart with --rotate-token
 ```
 
 ---

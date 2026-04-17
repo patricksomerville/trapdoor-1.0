@@ -5,7 +5,7 @@ This gives the AI access to your local machine via Trapdoor.
 
 Setup:
     1. Run Trapdoor server on your machine: python server.py
-    2. Expose it: ngrok http 8080
+    2. Expose it: ngrok http 6969
     3. Upload this file to your AI chat
     4. Set the URL and token when prompted
 
@@ -132,7 +132,7 @@ def rm(path: str) -> dict:
 # Command Execution
 # ==============================================================================
 
-def exec(cmd: List[str], cwd: str = "/tmp", timeout: int = 60) -> Dict[str, Any]:
+def execute(cmd: List[str], cwd: str = "/", timeout: int = 60, env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     """
     Execute command
 
@@ -147,12 +147,12 @@ def exec(cmd: List[str], cwd: str = "/tmp", timeout: int = 60) -> Dict[str, Any]
     return _request(
         "post",
         "/exec",
-        json={"cmd": cmd, "cwd": cwd, "timeout": timeout},
+        json={"cmd": cmd, "cwd": cwd, "timeout": timeout, "env": env},
         timeout=timeout,
     ).json()
 
 
-def run(cmd_string: str, cwd: str = "/tmp") -> str:
+def run(cmd_string: str, cwd: str = "/") -> str:
     """
     Run shell command (convenience wrapper)
 
@@ -162,7 +162,7 @@ def run(cmd_string: str, cwd: str = "/tmp") -> str:
     Returns:
         Command stdout
     """
-    result = exec(shlex.split(cmd_string), cwd=cwd)
+    result = execute(shlex.split(cmd_string), cwd=cwd)
     if result.get("returncode") != 0 and result.get("stderr"):
         print(f"Warning: {result['stderr']}")
     return result.get("stdout", "")
