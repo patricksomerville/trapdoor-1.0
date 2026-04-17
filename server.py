@@ -63,6 +63,10 @@ ACCESS = LEVELS["limited"]
 PORT = 6969
 DEFAULT_ROOT = Path.cwd()
 TOKEN_FILE = Path.home() / ".trapdoor" / "token"
+ROOT_DIR = None
+
+if os.getenv("TRAPDOOR_ROOT"):
+    ROOT_DIR = Path(os.environ["TRAPDOOR_ROOT"]).expanduser().resolve()
 
 # ==============================================================================
 # Token Management
@@ -99,6 +103,23 @@ def find_open_port(start: int = 8080, max_tries: int = 100) -> int:
         except OSError:
             continue
     raise RuntimeError(f"No open port found in range {start}-{start + max_tries}")
+
+
+def resolve_path(path: str, *, allow_root: bool = True) -> Path:
+    """Resolve a path and enforce TRAPDOOR_ROOT if set."""
+    raw = Path(path).expanduser()
+    if ROOT_DIR:
+        if not raw.is_absolute():
+            raw = ROOT_DIR / raw
+        resolved = raw.resolve()
+        try:
+            resolved.relative_to(ROOT_DIR)
+        except ValueError as exc:
+            raise HTTPException(status_code=403, detail="Path outside TRAPDOOR_ROOT") from exc
+        if not allow_root and resolved == ROOT_DIR:
+            raise HTTPException(status_code=403, detail="Refusing to operate on root directory")
+        return resolved
+    return raw.resolve()
 
 # ==============================================================================
 # Sandbox Root
@@ -152,12 +173,16 @@ app.add_middleware(
 # Authentication
 # ==============================================================================
 
-def require_auth(authorization: Optional[str] = Header(None)) -> str:
-    """Validate Bearer token"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
+def require_auth(authorization: Optional[str] = Header(None), token: Optional[str] = None) -> str:
+    """Validate auth from Authorization header or query token."""
+    if token:
+        provided_token = token
+    elif authorization and authorization.startswith("Bearer "):
+        provided_token = authorization.split(" ", 1)[1]
+    else:
+        raise HTTPException(status_code=401, detail="Missing auth (Authorization header or ?token=)")
 
-    token = authorization.split(" ", 1)[1]
+    token = provided_token
     if token != TOKEN:
         raise HTTPException(status_code=403, detail="Invalid token")
 
@@ -206,6 +231,7 @@ def health():
             "delete": ACCESS["fs_delete"],
             "exec": ACCESS["exec"],
         },
+        "root": str(ROOT_DIR) if ROOT_DIR else None,
         "timestamp": datetime.now().isoformat()
     }
 
@@ -216,10 +242,11 @@ def health():
 @app.get("/fs/ls")
 def fs_ls(
     path: str = Query("/"),
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """List directory contents"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["fs_read"]:
         raise HTTPException(status_code=403, detail="Read access disabled")
@@ -256,10 +283,11 @@ def fs_ls(
 @app.get("/fs/read")
 def fs_read(
     path: str,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """Read file contents"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["fs_read"]:
         raise HTTPException(status_code=403, detail="Read access disabled")
@@ -282,10 +310,11 @@ def fs_read(
 @app.post("/fs/write")
 def fs_write(
     req: WriteRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """Write content to file"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["fs_write"]:
         raise HTTPException(status_code=403, detail="Write access disabled. Start with --solid or --full")
@@ -305,10 +334,11 @@ def fs_write(
 @app.post("/fs/mkdir")
 def fs_mkdir(
     req: MkdirRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """Create directory"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["fs_write"]:
         raise HTTPException(status_code=403, detail="Write access disabled. Start with --solid or --full")
@@ -322,15 +352,16 @@ def fs_mkdir(
 @app.post("/fs/rm")
 def fs_rm(
     req: RmRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """Remove file or directory"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["fs_delete"]:
         raise HTTPException(status_code=403, detail="Delete access disabled. Start with --full")
 
-    target = resolve_path(req.path)
+    target = resolve_path(req.path, allow_root=False)
 
     if not target.exists():
         raise HTTPException(status_code=404, detail=f"Path not found: {req.path}")
@@ -349,18 +380,22 @@ def fs_rm(
 @app.post("/exec")
 def exec_command(
     req: ExecRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """Execute shell command"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     if not ACCESS["exec"]:
         raise HTTPException(status_code=403, detail="Exec disabled. Start with --full to enable")
 
     try:
+        cwd_path = resolve_path(req.cwd)
+        if not cwd_path.exists() or not cwd_path.is_dir():
+            raise HTTPException(status_code=400, detail=f"Invalid cwd: {req.cwd}")
         result = subprocess.run(
             req.cmd,
-            cwd=resolve_path(req.cwd),
+            cwd=str(cwd_path),
             capture_output=True,
             text=True,
             timeout=req.timeout,
@@ -386,20 +421,26 @@ def exec_command(
 @app.post("/v1/chat/completions")
 def chat_completions(
     req: ChatRequest,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
+    token: Optional[str] = Query(None)
 ):
     """OpenAI-compatible chat endpoint (optional LLM proxy)"""
-    require_auth(authorization)
+    require_auth(authorization, token)
 
     ollama_host = os.getenv("OLLAMA_HOST")
 
     if ollama_host:
         import requests
-        resp = requests.post(
-            f"{ollama_host}/v1/chat/completions",
-            json={"model": req.model, "messages": req.messages}
-        )
-        return resp.json()
+        try:
+            resp = requests.post(
+                f"{ollama_host}/v1/chat/completions",
+                json={"model": req.model, "messages": req.messages},
+                timeout=30
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except requests.RequestException as exc:
+            raise HTTPException(status_code=502, detail=f"Chat proxy error: {exc}") from exc
 
     return {
         "id": "trapdoor-1",
@@ -474,6 +515,10 @@ Access Levels:
 Security:
   Your token (in ~/.trapdoor/token) is your only protection.
   Keep it secret. Rotate it if compromised: rm ~/.trapdoor/token
+
+Root sandboxing (optional):
+  Set TRAPDOOR_ROOT=/path/to/scope to restrict filesystem access
+  and exec working directory/path resolution to a single directory tree.
 
 Examples:
   trapdoor                     # Safe read-only mode

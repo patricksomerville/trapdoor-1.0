@@ -29,16 +29,32 @@ Usage:
 """
 
 import shlex
-import requests
 from typing import List, Dict, Any, Optional
+
+import requests
 
 # Connection state
 _url: Optional[str] = None
 _token: Optional[str] = None
 _headers: Dict[str, str] = {}
+_session = requests.Session()
+DEFAULT_TIMEOUT = 10
 
 
-def connect(url: str, token: str, *, timeout: int = 10) -> bool:
+def _request(method: str, path: str, **kwargs) -> requests.Response:
+    _require_connection()
+    url = f"{_url}{path}"
+    if "timeout" not in kwargs:
+        kwargs["timeout"] = DEFAULT_TIMEOUT
+    try:
+        resp = _session.request(method, url, headers=_headers, **kwargs)
+        resp.raise_for_status()
+        return resp
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Trapdoor request failed: {exc}") from exc
+
+
+def connect(url: str, token: str, timeout: int = DEFAULT_TIMEOUT) -> bool:
     """
     Connect to Trapdoor server
 
@@ -55,12 +71,13 @@ def connect(url: str, token: str, *, timeout: int = 10) -> bool:
     _token = token
     _headers = {"Authorization": f"Bearer {token}"}
 
-    # Test connection
+    # Test connection (health + auth)
     try:
-        r = requests.get(f"{_url}/health", timeout=timeout)
-        r.raise_for_status()
-        info = r.json()
-        print(f"Connected to Trapdoor {info.get('version', '1.0')}")
+        resp = _session.get(f"{_url}/health", timeout=timeout)
+        resp.raise_for_status()
+        info = resp.json()
+        _request("get", "/fs/ls", params={"path": "."}, timeout=timeout)
+        print(f"Connected to Trapdoor {info.get('version', '1.0')} at {_url}")
         return True
     except Exception as e:
         print(f"Connection failed: {e}")
@@ -78,10 +95,7 @@ def _require_connection():
 
 def ls(path: str = "/") -> List[str]:
     """List directory contents"""
-    _require_connection()
-    r = requests.get(f"{_url}/fs/ls", headers=_headers, params={"path": path})
-    r.raise_for_status()
-    data = r.json()
+    data = _request("get", "/fs/ls", params={"path": path}).json()
     if "entries" in data:
         return [e["name"] for e in data["entries"]]
     return data
@@ -89,10 +103,7 @@ def ls(path: str = "/") -> List[str]:
 
 def read(path: str) -> str:
     """Read file contents"""
-    _require_connection()
-    r = requests.get(f"{_url}/fs/read", headers=_headers, params={"path": path})
-    r.raise_for_status()
-    data = r.json()
+    data = _request("get", "/fs/read", params={"path": path}).json()
     if "error" in data:
         raise RuntimeError(data["error"])
     return data.get("content", "")
@@ -100,30 +111,21 @@ def read(path: str) -> str:
 
 def write(path: str, content: str, append: bool = False) -> dict:
     """Write content to file"""
-    _require_connection()
-    r = requests.post(
-        f"{_url}/fs/write",
-        headers=_headers,
-        json={"path": path, "content": content, "mode": "append" if append else "write"}
-    )
-    r.raise_for_status()
-    return r.json()
+    return _request(
+        "post",
+        "/fs/write",
+        json={"path": path, "content": content, "mode": "append" if append else "write"},
+    ).json()
 
 
 def mkdir(path: str) -> dict:
     """Create directory"""
-    _require_connection()
-    r = requests.post(f"{_url}/fs/mkdir", headers=_headers, json={"path": path})
-    r.raise_for_status()
-    return r.json()
+    return _request("post", "/fs/mkdir", json={"path": path}).json()
 
 
 def rm(path: str) -> dict:
     """Remove file or directory"""
-    _require_connection()
-    r = requests.post(f"{_url}/fs/rm", headers=_headers, json={"path": path})
-    r.raise_for_status()
-    return r.json()
+    return _request("post", "/fs/rm", json={"path": path}).json()
 
 
 # ==============================================================================
@@ -142,14 +144,12 @@ def execute(cmd: List[str], cwd: str = "/", timeout: int = 60, env: Optional[Dic
     Returns:
         Dict with stdout, stderr, returncode
     """
-    _require_connection()
-    r = requests.post(
-        f"{_url}/exec",
-        headers=_headers,
-        json={"cmd": cmd, "cwd": cwd, "timeout": timeout, "env": env}
-    )
-    r.raise_for_status()
-    return r.json()
+    return _request(
+        "post",
+        "/exec",
+        json={"cmd": cmd, "cwd": cwd, "timeout": timeout, "env": env},
+        timeout=timeout,
+    ).json()
 
 
 def run(cmd_string: str, cwd: str = "/") -> str:
@@ -174,14 +174,13 @@ def run(cmd_string: str, cwd: str = "/") -> str:
 
 def chat(prompt: str, model: str = "default") -> str:
     """Send prompt to local LLM via Trapdoor"""
-    _require_connection()
-    r = requests.post(
-        f"{_url}/v1/chat/completions",
-        headers=_headers,
-        json={"model": model, "messages": [{"role": "user", "content": prompt}]}
-    )
-    r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"]
+    data = _request(
+        "post",
+        "/v1/chat/completions",
+        json={"model": model, "messages": [{"role": "user", "content": prompt}]},
+        timeout=30,
+    ).json()
+    return data["choices"][0]["message"]["content"]
 
 
 # ==============================================================================
@@ -190,10 +189,7 @@ def chat(prompt: str, model: str = "default") -> str:
 
 def health() -> dict:
     """Check server health"""
-    _require_connection()
-    r = requests.get(f"{_url}/health", headers=_headers, timeout=5)
-    r.raise_for_status()
-    return r.json()
+    return _request("get", "/health", timeout=5).json()
 
 
 def whoami() -> str:

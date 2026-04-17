@@ -45,6 +45,13 @@ pip install fastapi uvicorn requests
 python server.py
 ```
 
+Optional root sandbox:
+```bash
+TRAPDOOR_ROOT=~/Projects python server.py
+```
+Note: this scopes filesystem endpoints and exec working directory, but does not
+fully sandbox command execution (commands can still access paths outside the root).
+
 Access levels (pick the smallest that works):
 ```bash
 python server.py                   # read-only (default)
